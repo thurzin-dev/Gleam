@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Profile, ActionResult } from "@/lib/types";
 
 export async function getProfile(): Promise<Profile | null> {
@@ -79,18 +80,32 @@ export async function inviteCleaner(
   const fullName = formData.get("full_name") as string;
   const password = formData.get("password") as string;
 
-  // Create auth user for the cleaner
-  const { data: authData, error: signUpError } = await supabase.auth.signUp({
-    email,
-    password,
-  });
+  // SECURITY: Must use the admin client here — NOT the session-bound `supabase` client.
+  //
+  // Calling supabase.auth.signUp() on a createServerClient instance triggers its setAll
+  // cookie callback, replacing the current owner's session token with the newly created
+  // cleaner's token. Every DB operation after that point runs under the cleaner's JWT,
+  // which has no profile yet — so auth_org_id() returns null and the RLS INSERT policy
+  // (which requires a profile) silently blocks the profile creation.
+  //
+  // The admin client uses the service_role key and never touches session cookies, so the
+  // owner's session remains intact for the rest of this request.
+  const adminClient = createAdminClient();
+
+  const { data: authData, error: signUpError } =
+    await adminClient.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true, // skip email confirmation for invited users
+    });
 
   if (signUpError || !authData.user) {
-    return { success: false, error: signUpError?.message ?? "Sign-up failed" };
+    return { success: false, error: signUpError?.message ?? "Failed to create user" };
   }
 
-  // Create cleaner profile under the same org
-  const { error: profileError } = await supabase.from("profiles").insert({
+  // Profile insert also uses the admin client (no RLS INSERT policy exists for profiles —
+  // only service_role can create them, by design).
+  const { error: profileError } = await adminClient.from("profiles").insert({
     id: authData.user.id,
     org_id: callerProfile.org_id,
     full_name: fullName,
@@ -98,6 +113,8 @@ export async function inviteCleaner(
   });
 
   if (profileError) {
+    // Roll back: delete the auth user we just created so we don't leave orphaned accounts.
+    await adminClient.auth.admin.deleteUser(authData.user.id);
     return { success: false, error: "Failed to create cleaner profile" };
   }
 

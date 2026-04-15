@@ -3,6 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { JobItem, ActionResult } from "@/lib/types";
+import {
+  validatePhoto,
+  MIME_TO_EXT,
+  type AllowedPhotoMimeType,
+} from "@/lib/validations/photo";
 
 async function getOrgId(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<string | null> {
   const { data, error } = await supabase
@@ -97,7 +102,15 @@ export async function uploadJobItemPhoto(
     return { success: false, error: "Job item not found" };
   }
 
-  const ext = photo.name.split(".").pop() ?? "jpg";
+  // Validate MIME type and size before touching storage.
+  // Deriving ext from photo.name is unsafe (e.g. "evil.php.jpg" → "jpg" but MIME could be
+  // anything). Always derive the extension from the validated MIME type instead.
+  const validationError = validatePhoto({ type: photo.type, size: photo.size });
+  if (validationError) {
+    return { success: false, error: validationError.message };
+  }
+
+  const ext = MIME_TO_EXT[photo.type as AllowedPhotoMimeType];
   const path = `${orgId}/${existingItem.job_id}/${id}.${ext}`;
 
   const { error: uploadError } = await supabase.storage

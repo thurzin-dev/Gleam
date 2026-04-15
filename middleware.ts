@@ -32,14 +32,28 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/signup");
+  const isJoinRoute = pathname.startsWith("/join");
 
-  if (!user && !isAuthRoute) {
+  if (!user && !isAuthRoute && !isJoinRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
   if (user && isAuthRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
+    return NextResponse.redirect(url);
+  }
+
+  // An authenticated user must not be allowed to consume an invite link.
+  // Risks if we don't block this:
+  //   - The user's existing session could be silently re-bound to a different org.
+  //   - The invite token would be "consumed" without creating a new account,
+  //     potentially locking out the intended recipient.
+  //   - An attacker who has compromised one account could use stolen invite
+  //     links to probe valid org IDs.
+  if (user && isJoinRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
