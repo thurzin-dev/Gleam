@@ -1,7 +1,6 @@
 import OwnerSidebar from "@/components/OwnerSidebar";
 
-// Shared layout for all owner-facing pages (dashboard, inspections, team, settings)
-export default function OwnerLayout({
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;

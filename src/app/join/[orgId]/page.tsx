@@ -81,7 +81,7 @@ export default function JoinPage() {
             fullWidth
             size="lg"
             variant="primary"
-            onClick={() => (window.location.href = "/cleaner/dashboard")}
+            onClick={() => (window.location.href = "/app")}
           >
             Go to my dashboard
           </Button>
