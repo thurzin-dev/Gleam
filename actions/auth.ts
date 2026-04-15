@@ -83,14 +83,26 @@ export async function signIn(formData: FormData): Promise<ActionResult> {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data: signInData, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
 
   if (error) {
     return { success: false, error: error.message };
   }
 
+  // Route by role — owners to /dashboard, cleaners to /app. Relying only on
+  // middleware would land every cleaner on /dashboard first and then bounce
+  // them, exposing a split-second of owner UI in the network tab.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", signInData.user!.id)
+    .single();
+
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+  redirect(profile?.role === "cleaner" ? "/app" : "/dashboard");
 }
 
 export async function signOut(): Promise<void> {
