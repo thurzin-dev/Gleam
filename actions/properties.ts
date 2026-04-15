@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { Property, ActionResult } from "@/lib/types";
+import type { Property, PropertyRoom, ActionResult } from "@/lib/types";
 
 async function getOrgId(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<string | null> {
   const { data, error } = await supabase
@@ -62,6 +62,16 @@ export async function getProperty(
   return { success: true, data: data as Property };
 }
 
+function parseChecklist(raw: FormDataEntryValue | null): PropertyRoom[] {
+  if (!raw || typeof raw !== "string") return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as PropertyRoom[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function createProperty(
   formData: FormData
 ): Promise<ActionResult<Property>> {
@@ -82,6 +92,7 @@ export async function createProperty(
       org_id: orgId,
       name: formData.get("name") as string,
       address: formData.get("address") as string,
+      checklist: parseChecklist(formData.get("checklist")),
     })
     .select()
     .single();
@@ -112,6 +123,7 @@ export async function updateProperty(
     .update({
       name: formData.get("name") as string,
       address: formData.get("address") as string,
+      checklist: parseChecklist(formData.get("checklist")),
     })
     .eq("id", id)
     .eq("org_id", orgId)

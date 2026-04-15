@@ -104,6 +104,34 @@ export async function inviteCleaner(
   return { success: true, data: undefined };
 }
 
+export async function generateInviteLink(): Promise<ActionResult<string>> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { success: false, error: "Not authenticated" };
+
+  const { data: callerProfile, error: callerError } = await supabase
+    .from("profiles")
+    .select("org_id, role")
+    .eq("id", user.id)
+    .single();
+
+  if (callerError || !callerProfile) {
+    return { success: false, error: "Profile not found" };
+  }
+
+  if (callerProfile.role !== "owner") {
+    return { success: false, error: "Only owners can generate invite links" };
+  }
+
+  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const path = `/join/${callerProfile.org_id}`;
+  return { success: true, data: base ? `${base}${path}` : path };
+}
+
 export async function listCleaners(): Promise<ActionResult<Profile[]>> {
   const supabase = await createClient();
 

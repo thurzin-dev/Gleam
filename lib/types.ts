@@ -7,6 +7,11 @@ export type ChecklistItem = {
   label: string;
 };
 
+export type PropertyRoom = {
+  name: string;
+  items: ChecklistItem[];
+};
+
 export interface Organization {
   id: string;
   name: string;
@@ -26,6 +31,7 @@ export interface Property {
   org_id: string;
   name: string;
   address: string;
+  checklist: PropertyRoom[];
   created_at: string;
 }
 
