@@ -78,12 +78,12 @@ export default function PropertiesPage() {
                     {property.rooms.length} rooms ·{" "}
                     {property.rooms.reduce((a, r) => a + r.items.length, 0)} checks
                   </span>
-                  <Link
-                    href="#"
+                  <button
+                    onClick={() => handleEdit(property.clientName)}
                     className="text-[#0EA5E9] font-medium hover:underline"
                   >
                     View
-                  </Link>
+                  </button>
                 </div>
               </div>
             ))}

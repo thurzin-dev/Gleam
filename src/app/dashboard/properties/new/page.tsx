@@ -96,6 +96,11 @@ export default function NewPropertyPage() {
       toast.error("Add at least one room with checklist items.");
       return;
     }
+    const emptyRoom = rooms.find((r) => r.items.length === 0);
+    if (emptyRoom) {
+      toast.error(`"${emptyRoom.name}" has no checklist items.`);
+      return;
+    }
     setSaving(true);
     setTimeout(() => {
       setSaving(false);

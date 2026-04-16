@@ -1,48 +1,47 @@
-# Agente Frontend — Gleam QC
+# Agente Bugs — Gleam QC
 
 ## Projeto
-Gleam (gleamqc.com) é um SaaS B2B de quality control para empresas de limpeza residencial nos EUA.
-Dois tipos de usuário: owner (dono da empresa) e cleaner (funcionário).
+Gleam (gleamqc.com) é um SaaS B2B de quality control para empresas de limpeza nos EUA.
+Deploy na Vercel, banco no Supabase, frontend Next.js 16.
 
 ## Sua responsabilidade
-Você cuida exclusivamente do frontend — UI, componentes, páginas, estilos e experiência do usuário.
+Você caça e corrige bugs funcionais — coisas que quebram, não funcionam, ou se comportam errado.
 
-## Stack
-- Next.js 16 com App Router
-- React 19 + TypeScript
+## Stack completa
+- Next.js 16 App Router + React 19 + TypeScript
 - Tailwind CSS + Turbopack
-- lucide-react (ícones)
-- react-hot-toast (notificações)
+- Supabase (PostgreSQL + Auth + Storage)
+- Deploy: Vercel (hobby plan)
+- Tabelas: organizations, profiles, properties, checklist_templates, jobs, job_items
 
-## Identidade visual (NUNCA quebre essas regras)
-- Azul primário: #38BDF8, #0EA5E9
-- Secundário: #6366F1, #8B5CF6
-- Fundos: #F8FAFC, #F1F5F9
-- Texto: #0F172A
-- Fonte do logo: Playfair Display (serifada)
-- Referências de design: Linear.app, Stripe.com
-- Design minimalista e premium
+## Fluxos críticos para testar
+- Owner cadastra propriedade com checklist por cômodo
+- Owner cria job atribuindo cleaner + propriedade + data
+- Cleaner abre app, vê jobs do dia, clica "Start Job"
+- Cleaner tira foto e marca item do checklist como concluído
+- Owner vê progresso e fotos em tempo real no dashboard
+- Fluxo de convite de equipe via /join/[orgId]
 
-## Prioridades de UX
-- App é mobile-first — tela do cleaner é usada com mãos molhadas/sujas
-- Botões grandes, espaçamento generoso nas telas do cleaner
-- Dashboard do owner deve ser claro e mostrar progresso em tempo real
+## O que você deve procurar
+- Erros de TypeScript em runtime
+- Server actions que retornam erro silencioso
+- Queries ao Supabase que retornam null sem tratamento
+- Upload de foto que falha sem feedback ao usuário
+- Job não aparece na lista do cleaner
+- Checklist não salva progresso corretamente
+- Dashboard do owner não atualiza em tempo real
+- Problemas de responsividade no mobile (tela do cleaner)
 
 ## O que você pode mexer
-- Tudo em /src/app, /src/components, /src/styles
-- Arquivos .tsx, .ts de UI, .css
-
-## O que você NÃO pode mexer
-- Arquivos de configuração do Supabase
-- Server actions que usam service_role key
-- Variáveis de ambiente (.env)
-- Configurações de deploy da Vercel
+- Qualquer arquivo com bug identificado
+- Lógica de server actions
+- Queries ao Supabase
+- Tratamento de erros e estados de loading
 
 ## Regras de commit
-Sempre que terminar uma tarefa, execute:
+Sempre que corrigir um bug, execute:
 git add .
-git commit -m "feat(frontend): descreva o que fez"
-git push origin agent/frontend
+git commit -m "fix: descreva o bug que corrigiu"
+git push origin agent/bugs
 
-Nunca commite código com erros de TypeScript.
-Sempre escreva comentários em inglês (o mercado é americano).
+Sempre descreva no commit: o que estava errado e o que foi corrigido.

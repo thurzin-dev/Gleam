@@ -19,13 +19,32 @@ export default function SignupPage() {
     email: "",
     password: "",
   });
+  const [errors, setErrors] = useState<Partial<typeof form>>({});
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: value });
+    if (errors[name as keyof typeof errors]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  }
+
+  function validate() {
+    const next: Partial<typeof form> = {};
+    if (!form.company.trim()) next.company = "Company name is required.";
+    if (!form.name.trim()) next.name = "Your name is required.";
+    if (!form.email.trim()) next.email = "Email is required.";
+    else if (!/\S+@\S+\.\S+/.test(form.email))
+      next.email = "Enter a valid email address.";
+    if (form.password.length < 8)
+      next.password = "Password must be at least 8 characters.";
+    setErrors(next);
+    return Object.keys(next).length === 0;
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!validate()) return;
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
@@ -45,7 +64,7 @@ export default function SignupPage() {
         </div>
 
         <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-sm p-8">
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
             <div className="relative">
               <Building2
                 size={16}
@@ -58,8 +77,8 @@ export default function SignupPage() {
                 placeholder="CleanPro Austin"
                 value={form.company}
                 onChange={handleChange}
+                error={errors.company}
                 className="pl-10"
-                required
               />
             </div>
 
@@ -76,8 +95,8 @@ export default function SignupPage() {
                 autoComplete="name"
                 value={form.name}
                 onChange={handleChange}
+                error={errors.name}
                 className="pl-10"
-                required
               />
             </div>
 
@@ -94,8 +113,8 @@ export default function SignupPage() {
                 autoComplete="email"
                 value={form.email}
                 onChange={handleChange}
+                error={errors.email}
                 className="pl-10"
-                required
               />
             </div>
 
@@ -112,9 +131,8 @@ export default function SignupPage() {
                 autoComplete="new-password"
                 value={form.password}
                 onChange={handleChange}
+                error={errors.password}
                 className="pl-10 pr-10"
-                minLength={8}
-                required
               />
               <button
                 type="button"

@@ -14,7 +14,11 @@ import Badge from "@/components/Badge";
 import Button from "@/components/Button";
 import { cleaners } from "@/lib/sampleData";
 
-const INVITE_LINK = "https://gleamqc.com/join/cleanpro-austin";
+const ORG_SLUG = "cleanpro-austin";
+const INVITE_LINK =
+  typeof window !== "undefined"
+    ? `${window.location.origin}/join/${ORG_SLUG}`
+    : `/join/${ORG_SLUG}`;
 
 export default function TeamPage() {
   const [copied, setCopied] = useState(false);
