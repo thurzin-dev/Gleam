@@ -16,15 +16,22 @@ export default function NewJobPage() {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const activeCleaners = cleaners.filter((c) => c.status === "active");
 
+  function validate() {
+    const next: Record<string, string> = {};
+    if (!propertyId) next.propertyId = "Please select a property.";
+    if (!cleanerId) next.cleanerId = "Please select a cleaner.";
+    if (!date) next.date = "Please select a date.";
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!propertyId || !cleanerId || !date) {
-      toast.error("Fill in property, cleaner and date.");
-      return;
-    }
+    if (!validate()) return;
     setSaving(true);
     setTimeout(() => {
       setSaving(false);
@@ -59,6 +66,7 @@ export default function NewJobPage() {
           <form
             onSubmit={handleSubmit}
             className="bg-white rounded-2xl border border-[#E2E8F0] p-6 flex flex-col gap-5"
+            noValidate
           >
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-[#0F172A] flex items-center gap-1.5">
@@ -67,9 +75,13 @@ export default function NewJobPage() {
               </label>
               <select
                 value={propertyId}
-                onChange={(e) => setPropertyId(e.target.value)}
-                className="rounded-xl border border-[#E2E8F0] px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#38BDF8]"
-                required
+                onChange={(e) => {
+                  setPropertyId(e.target.value);
+                  if (errors.propertyId) setErrors((p) => ({ ...p, propertyId: "" }));
+                }}
+                className={`rounded-xl border px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#38BDF8] ${
+                  errors.propertyId ? "border-red-400 focus:ring-red-400" : "border-[#E2E8F0]"
+                }`}
               >
                 <option value="">Select a property</option>
                 {properties.map((p) => (
@@ -78,6 +90,9 @@ export default function NewJobPage() {
                   </option>
                 ))}
               </select>
+              {errors.propertyId && (
+                <p className="text-xs text-red-500">{errors.propertyId}</p>
+              )}
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -87,9 +102,13 @@ export default function NewJobPage() {
               </label>
               <select
                 value={cleanerId}
-                onChange={(e) => setCleanerId(e.target.value)}
-                className="rounded-xl border border-[#E2E8F0] px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#38BDF8]"
-                required
+                onChange={(e) => {
+                  setCleanerId(e.target.value);
+                  if (errors.cleanerId) setErrors((p) => ({ ...p, cleanerId: "" }));
+                }}
+                className={`rounded-xl border px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#38BDF8] ${
+                  errors.cleanerId ? "border-red-400 focus:ring-red-400" : "border-[#E2E8F0]"
+                }`}
               >
                 <option value="">Select a cleaner</option>
                 {activeCleaners.map((c) => (
@@ -98,6 +117,9 @@ export default function NewJobPage() {
                   </option>
                 ))}
               </select>
+              {errors.cleanerId && (
+                <p className="text-xs text-red-500">{errors.cleanerId}</p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -109,10 +131,17 @@ export default function NewJobPage() {
                 <input
                   type="date"
                   value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="rounded-xl border border-[#E2E8F0] px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#38BDF8]"
-                  required
+                  onChange={(e) => {
+                    setDate(e.target.value);
+                    if (errors.date) setErrors((p) => ({ ...p, date: "" }));
+                  }}
+                  className={`rounded-xl border px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#38BDF8] ${
+                    errors.date ? "border-red-400 focus:ring-red-400" : "border-[#E2E8F0]"
+                  }`}
                 />
+                {errors.date && (
+                  <p className="text-xs text-red-500">{errors.date}</p>
+                )}
               </div>
 
               <div className="flex flex-col gap-1.5">

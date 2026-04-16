@@ -13,7 +13,11 @@ export default function OwnerTopbar({ title, subtitle }: OwnerTopbarProps) {
   return (
     <header className="h-16 flex items-center justify-between px-4 lg:px-8 bg-white border-b border-[#E2E8F0]">
       <div className="flex items-center gap-3 lg:hidden">
-        <button className="p-1.5 rounded-lg hover:bg-[#F1F5F9] text-[#64748B]">
+        <button
+          className="p-1.5 rounded-lg hover:bg-[#F1F5F9] text-[#64748B]"
+          onClick={() => window.dispatchEvent(new Event("toggle-mobile-nav"))}
+          aria-label="Open menu"
+        >
           <Menu size={20} />
         </button>
         <Logo size="sm" href="/dashboard" />

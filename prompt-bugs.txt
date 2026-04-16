@@ -1,0 +1,44 @@
+Work directly in C:/Users/fachi/OneDrive/Documentos/gleam. Read CLAUDE.md first.
+
+Fix all broken functionality and build all missing features listed below. Commit everything to the gleam main branch when done.
+
+CRITICAL BUGS TO FIX:
+
+1. LOGIN WITHOUT ACCOUNT — /login currently lets anyone in without a real account. Remove the mock setTimeout login. Wire the login form to the real Supabase signInWithPassword server action in actions/auth.ts. Show inline error if credentials are wrong. Never redirect on failed login.
+
+2. EMAIL VERIFICATION ON SIGNUP — After owner signs up, send a Supabase confirmation email. Block login until email is confirmed. Show a "Check your email" screen after signup with the email address and a "Resend email" button.
+
+3. FORGOT PASSWORD — Wire the "Forgot password" link on /login to a real /forgot-password page: email input form → calls Supabase resetPasswordForEmail → shows "Check your email" confirmation. Build /reset-password page that accepts the token from the email link and lets the user set a new password.
+
+4. INVITE LINK 404 — /join/[orgId] is returning 404. Fix the page and routing so it loads correctly. Use the verifyInviteOrg + joinOrg server actions already built in actions/join.ts. Show company name on the page. After joining, redirect to /app.
+
+5. REMOVE CLEANERS — Add a remove button on each cleaner row in /dashboard/team. Clicking shows a confirmation modal ("Remove [name] from your team? They will lose access immediately."). On confirm, delete the profile from the database and remove them from the list. Use react-hot-toast for feedback.
+
+6. FROZEN PAGE — Identify and fix any page that freezes or becomes unresponsive. Check for infinite render loops, missing Suspense boundaries, or unhandled async errors in server components.
+
+NEW FEATURES TO BUILD:
+
+7. CHECKLIST IN JOB CREATION — On /dashboard/jobs/new, after the owner picks a property, fetch and show that property's checklist organized by room. Allow the owner to toggle individual items on/off — only selected items will be copied into the job. Items are on by default. Show room headers with item counts.
+
+8. OWNER ACCOUNT SETTINGS — Build /dashboard/settings with 3 sections:
+   - Profile: change full name, upload profile photo (camera or file, preview before save)
+   - Security: change password (requires current password + new password + confirm, email verification step)
+   - Company: change company name
+
+9. CLEANER SETTINGS — Build /app/settings with:
+   - Profile: change name, upload profile photo using device camera (request camera permission via browser API, show live preview, capture button) or file upload fallback
+   - Security: change password
+
+10. NATIVE CAMERA — On /app/job/[id], the "Take Photo" button must trigger the device camera directly (input type=file accept=image/* capture=environment). Show live preview of captured photo. Works on mobile without any app install.
+
+11. GOOGLE MAPS INTEGRATION — On every property card and job detail page:
+    - Show a static Google Maps embed image of the property address (use maps.googleapis.com/maps/api/staticmap with the address — no API key needed for embed)
+    - Add a "Get Directions" button that opens Google Maps in a new tab with: https://www.google.com/maps/dir/?api=1&destination=[encoded address]
+    - Show this in both /dashboard/jobs/[id] (owner view) and /app/job/[id] (cleaner view)
+
+12. SETTINGS NAVIGATION — Add "Settings" link to OwnerSidebar (gear icon, href=/dashboard/settings) and to the cleaner /app header (gear icon, href=/app/settings).
+
+After all fixes and features are built:
+git add .
+git commit -m "fix+feat: bugs, auth, camera, maps, settings, invite, checklist-in-job"
+git push origin master

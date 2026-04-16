@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -9,6 +10,7 @@ import {
   Users,
   LogOut,
   Sparkles,
+  X,
 } from "lucide-react";
 import Logo from "./Logo";
 
@@ -21,11 +23,37 @@ const navItems = [
 
 export default function OwnerSidebar() {
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  return (
-    <aside className="hidden lg:flex flex-col w-60 min-h-screen bg-white border-r border-[#E2E8F0] px-4 py-6">
-      <div className="px-2 mb-8">
+  const handleOpen = useCallback(() => setMobileOpen(true), []);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    window.addEventListener("toggle-mobile-nav", handleOpen);
+    return () => window.removeEventListener("toggle-mobile-nav", handleOpen);
+  }, [handleOpen]);
+
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = ""; };
+    }
+  }, [mobileOpen]);
+
+  const sidebarContent = (
+    <>
+      <div className="px-2 mb-8 flex items-center justify-between">
         <Logo size="md" href="/dashboard" />
+        <button
+          className="lg:hidden p-1.5 rounded-lg hover:bg-[#F1F5F9] text-[#64748B]"
+          onClick={() => setMobileOpen(false)}
+          aria-label="Close menu"
+        >
+          <X size={20} />
+        </button>
       </div>
 
       <nav className="flex flex-col gap-1 flex-1">
@@ -65,6 +93,32 @@ export default function OwnerSidebar() {
           Sign out
         </Link>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex flex-col w-60 min-h-screen bg-white border-r border-[#E2E8F0] px-4 py-6">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/30 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile drawer */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white px-4 py-6 flex flex-col transform transition-transform duration-200 lg:hidden ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        {sidebarContent}
+      </aside>
+    </>
   );
 }

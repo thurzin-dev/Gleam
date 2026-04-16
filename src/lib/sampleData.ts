@@ -1,5 +1,26 @@
 // Hardcoded sample data — no backend wired yet.
 
+export function getToday(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function getTomorrow(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function formatDateLabel(dateStr: string): string {
+  const d = new Date(dateStr + "T12:00:00");
+  return d.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export type JobStatus = "not_started" | "in_progress" | "completed";
 
 export interface ChecklistItem {
@@ -184,10 +205,13 @@ function seedRooms(
   }));
 }
 
+const TODAY = getToday();
+const TOMORROW = getTomorrow();
+
 export const jobs: Job[] = [
   {
     id: "j1",
-    date: "2026-04-15",
+    date: TODAY,
     time: "08:30 AM",
     propertyId: "p1",
     propertyAddress: properties[0].address,
@@ -199,7 +223,7 @@ export const jobs: Job[] = [
   },
   {
     id: "j2",
-    date: "2026-04-15",
+    date: TODAY,
     time: "10:00 AM",
     propertyId: "p2",
     propertyAddress: properties[1].address,
@@ -211,7 +235,7 @@ export const jobs: Job[] = [
   },
   {
     id: "j3",
-    date: "2026-04-15",
+    date: TODAY,
     time: "01:00 PM",
     propertyId: "p3",
     propertyAddress: properties[2].address,
@@ -223,7 +247,7 @@ export const jobs: Job[] = [
   },
   {
     id: "j4",
-    date: "2026-04-15",
+    date: TODAY,
     time: "03:30 PM",
     propertyId: "p4",
     propertyAddress: properties[3].address,
@@ -235,7 +259,7 @@ export const jobs: Job[] = [
   },
   {
     id: "j5",
-    date: "2026-04-16",
+    date: TOMORROW,
     time: "09:00 AM",
     propertyId: "p1",
     propertyAddress: properties[0].address,

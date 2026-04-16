@@ -14,13 +14,29 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ email: "", password: "" });
+  const [errors, setErrors] = useState<Partial<typeof form>>({});
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: value });
+    if (errors[name as keyof typeof errors]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  }
+
+  function validate() {
+    const next: Partial<typeof form> = {};
+    if (!form.email.trim()) next.email = "Email is required.";
+    else if (!/\S+@\S+\.\S+/.test(form.email))
+      next.email = "Enter a valid email address.";
+    if (!form.password) next.password = "Password is required.";
+    setErrors(next);
+    return Object.keys(next).length === 0;
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!validate()) return;
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
@@ -41,7 +57,7 @@ export default function LoginPage() {
         </div>
 
         <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-sm p-8">
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
             <div className="relative">
               <Mail
                 size={16}
@@ -55,8 +71,8 @@ export default function LoginPage() {
                 autoComplete="email"
                 value={form.email}
                 onChange={handleChange}
+                error={errors.email}
                 className="pl-10"
-                required
               />
             </div>
 
@@ -69,12 +85,12 @@ export default function LoginPage() {
                 label="Password"
                 name="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
+                placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;"
                 autoComplete="current-password"
                 value={form.password}
                 onChange={handleChange}
+                error={errors.password}
                 className="pl-10 pr-10"
-                required
               />
               <button
                 type="button"

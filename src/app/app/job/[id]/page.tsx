@@ -42,6 +42,8 @@ export default function CleanerJobPage({
   const [openRoom, setOpenRoom] = useState<string | null>(
     seed?.rooms.find((r) => r.items.some((i) => !i.done))?.id ?? null
   );
+  const [starting, setStarting] = useState(false);
+  const [completing, setCompleting] = useState(false);
 
   if (!seed) {
     return (
@@ -98,14 +100,22 @@ export default function CleanerJobPage({
   }
 
   function startJob() {
-    setStatus("in_progress");
-    toast.success("Job started. Good luck!");
+    setStarting(true);
+    setTimeout(() => {
+      setStarting(false);
+      setStatus("in_progress");
+      toast.success("Job started. Good luck!");
+    }, 600);
   }
 
   function completeJob() {
-    setStatus("completed");
-    toast.success("Job completed! Great work.");
-    setTimeout(() => router.push("/app"), 1200);
+    setCompleting(true);
+    setTimeout(() => {
+      setCompleting(false);
+      setStatus("completed");
+      toast.success("Job completed! Great work.");
+      setTimeout(() => router.push("/app"), 1200);
+    }, 600);
   }
 
   return (
@@ -152,6 +162,7 @@ export default function CleanerJobPage({
             size="lg"
             variant="primary"
             onClick={startJob}
+            loading={starting}
             className="mb-5"
           >
             Start Job
@@ -300,6 +311,7 @@ export default function CleanerJobPage({
             size="lg"
             variant="primary"
             onClick={completeJob}
+            loading={completing}
           >
             <Check size={18} />
             Complete Job
