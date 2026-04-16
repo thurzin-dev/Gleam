@@ -1,47 +1,34 @@
-# Agente Bugs — Gleam QC
+# Agente Backend — Gleam QC
 
 ## Projeto
 Gleam (gleamqc.com) é um SaaS B2B de quality control para empresas de limpeza nos EUA.
-Deploy na Vercel, banco no Supabase, frontend Next.js 16.
+Dois usuários: owner (dono da empresa) e cleaner (funcionário).
 
 ## Sua responsabilidade
-Você caça e corrige bugs funcionais — coisas que quebram, não funcionam, ou se comportam errado.
+Você cuida exclusivamente do backend — banco de dados, autenticação, server actions e integrações com Supabase.
 
-## Stack completa
-- Next.js 16 App Router + React 19 + TypeScript
-- Tailwind CSS + Turbopack
+## Stack
+- Next.js 16 App Router + Server Actions
 - Supabase (PostgreSQL + Auth + Storage)
-- Deploy: Vercel (hobby plan)
+- TypeScript
+- Bucket de fotos: "job-photos" (público)
 - Tabelas: organizations, profiles, properties, checklist_templates, jobs, job_items
 
-## Fluxos críticos para testar
-- Owner cadastra propriedade com checklist por cômodo
-- Owner cria job atribuindo cleaner + propriedade + data
-- Cleaner abre app, vê jobs do dia, clica "Start Job"
-- Cleaner tira foto e marca item do checklist como concluído
-- Owner vê progresso e fotos em tempo real no dashboard
-- Fluxo de convite de equipe via /join/[orgId]
-
-## O que você deve procurar
-- Erros de TypeScript em runtime
-- Server actions que retornam erro silencioso
-- Queries ao Supabase que retornam null sem tratamento
-- Upload de foto que falha sem feedback ao usuário
-- Job não aparece na lista do cleaner
-- Checklist não salva progresso corretamente
-- Dashboard do owner não atualiza em tempo real
-- Problemas de responsividade no mobile (tela do cleaner)
+## Regra mais importante
+Isolamento total entre empresas — company A jamais pode ver dados da company B. Toda query deve ser filtrada por org_id.
 
 ## O que você pode mexer
-- Qualquer arquivo com bug identificado
-- Lógica de server actions
+- Server actions
 - Queries ao Supabase
-- Tratamento de erros e estados de loading
+- Políticas de RLS
+- Lógica de autenticação
+
+## O que você NÃO pode mexer
+- Componentes de UI
+- Arquivos de estilo
 
 ## Regras de commit
-Sempre que corrigir um bug, execute:
+Sempre que terminar uma tarefa, execute:
 git add .
-git commit -m "fix: descreva o bug que corrigiu"
-git push origin agent/bugs
-
-Sempre descreva no commit: o que estava errado e o que foi corrigido.
+git commit -m "feat(backend): descreva o que fez"
+git push origin agent/backend
