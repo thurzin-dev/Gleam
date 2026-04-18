@@ -8,6 +8,8 @@ import { Eye, EyeOff, Mail, Lock, User, Building2 } from "lucide-react";
 import Logo from "@/components/Logo";
 import Button from "@/components/Button";
 import Input from "@/components/Input";
+import GoogleAuthButton from "@/components/GoogleAuthButton";
+import { signUpOwner } from "@/actions/auth";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -42,15 +44,28 @@ export default function SignupPage() {
     return Object.keys(next).length === 0;
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validate()) return;
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const result = await signUpOwner({
+        email: form.email,
+        password: form.password,
+        fullName: form.name,
+        company: form.company,
+      });
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Check your inbox to verify your email.");
+      router.push(result.redirectTo ?? `/verify-email?email=${encodeURIComponent(form.email)}`);
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
       setLoading(false);
-      toast.success("Trial started! Welcome to Gleam.");
-      router.push("/dashboard");
-    }, 1200);
+    }
   }
 
   return (
@@ -64,6 +79,14 @@ export default function SignupPage() {
         </div>
 
         <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-sm p-8">
+          <GoogleAuthButton />
+
+          <div className="flex items-center gap-3 my-5">
+            <div className="flex-1 h-px bg-[#E2E8F0]" />
+            <span className="text-xs text-[#94A3B8] font-medium">or</span>
+            <div className="flex-1 h-px bg-[#E2E8F0]" />
+          </div>
+
           <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
             <div className="relative">
               <Building2

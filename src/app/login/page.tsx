@@ -8,6 +8,8 @@ import Logo from "@/components/Logo";
 import Button from "@/components/Button";
 import Input from "@/components/Input";
 import Link from "next/link";
+import GoogleAuthButton from "@/components/GoogleAuthButton";
+import { signInWithPassword } from "@/actions/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -34,15 +36,28 @@ export default function LoginPage() {
     return Object.keys(next).length === 0;
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validate()) return;
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const result = await signInWithPassword({
+        email: form.email,
+        password: form.password,
+      });
+      if (result.error) {
+        toast.error(result.error);
+        if (result.redirectTo) router.push(result.redirectTo);
+        return;
+      }
+      toast.success("Welcome back!");
+      router.push(result.redirectTo ?? "/dashboard");
+      router.refresh();
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
       setLoading(false);
-      toast.success("Logged in successfully!");
-      router.push("/dashboard");
-    }, 900);
+    }
   }
 
   return (
@@ -57,6 +72,14 @@ export default function LoginPage() {
         </div>
 
         <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-sm p-8">
+          <GoogleAuthButton />
+
+          <div className="flex items-center gap-3 my-5">
+            <div className="flex-1 h-px bg-[#E2E8F0]" />
+            <span className="text-xs text-[#94A3B8] font-medium">or</span>
+            <div className="flex-1 h-px bg-[#E2E8F0]" />
+          </div>
+
           <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
             <div className="relative">
               <Mail
@@ -109,9 +132,9 @@ export default function LoginPage() {
                 />
                 <span className="text-[#64748B]">Remember me</span>
               </label>
-              <a href="#" className="text-[#0EA5E9] hover:underline font-medium">
+              <Link href="/forgot-password" className="text-[#0EA5E9] hover:underline font-medium">
                 Forgot password?
-              </a>
+              </Link>
             </div>
 
             <Button type="submit" fullWidth size="lg" loading={loading}>

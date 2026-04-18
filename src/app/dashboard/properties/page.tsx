@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { Plus, MapPin, Pencil, Trash2, Home } from "lucide-react";
@@ -8,12 +9,20 @@ import Button from "@/components/Button";
 import { properties } from "@/lib/sampleData";
 
 export default function PropertiesPage() {
-  function handleEdit(name: string) {
-    toast.success(`Editing ${name} (demo).`);
-  }
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  function handleDelete(name: string) {
-    toast(`Deleted ${name} (demo).`, { icon: "🗑️" });
+  function handleDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setTimeout(() => {
+      setDeleting(false);
+      toast.success(`${deleteTarget.name}'s property deleted.`);
+      setDeleteTarget(null);
+    }, 800);
   }
 
   return (
@@ -48,15 +57,20 @@ export default function PropertiesPage() {
                     <Home size={18} className="text-[#0EA5E9]" />
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => handleEdit(property.clientName)}
+                    <Link
+                      href={`/dashboard/properties/${property.id}/edit`}
                       className="p-1.5 rounded-lg hover:bg-[#F1F5F9] text-[#64748B] hover:text-[#0EA5E9]"
                       aria-label="Edit property"
                     >
                       <Pencil size={15} />
-                    </button>
+                    </Link>
                     <button
-                      onClick={() => handleDelete(property.clientName)}
+                      onClick={() =>
+                        setDeleteTarget({
+                          id: property.id,
+                          name: property.clientName,
+                        })
+                      }
                       className="p-1.5 rounded-lg hover:bg-red-50 text-[#64748B] hover:text-red-500"
                       aria-label="Delete property"
                     >
@@ -76,20 +90,51 @@ export default function PropertiesPage() {
                 <div className="mt-4 pt-4 border-t border-[#F1F5F9] flex items-center justify-between text-xs text-[#64748B]">
                   <span>
                     {property.rooms.length} rooms ·{" "}
-                    {property.rooms.reduce((a, r) => a + r.items.length, 0)} checks
+                    {property.rooms.reduce((a, r) => a + r.items.length, 0)}{" "}
+                    checks
                   </span>
-                  <button
-                    onClick={() => handleEdit(property.clientName)}
+                  <Link
+                    href={`/dashboard/properties/${property.id}`}
                     className="text-[#0EA5E9] font-medium hover:underline"
                   >
                     View
-                  </button>
+                  </Link>
                 </div>
               </div>
             ))}
           </div>
         </div>
       </div>
+
+      {/* Delete confirmation modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div
+            className="fixed inset-0 bg-black/30"
+            onClick={() => setDeleteTarget(null)}
+          />
+          <div className="relative bg-white rounded-2xl border border-[#E2E8F0] shadow-lg p-6 w-full max-w-sm">
+            <h3 className="text-lg font-bold text-[#0F172A] mb-2">
+              Delete property?
+            </h3>
+            <p className="text-sm text-[#64748B] mb-6">
+              Delete {deleteTarget.name}&apos;s property? This cannot be undone.
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <Button variant="ghost" onClick={() => setDeleteTarget(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleDelete}
+                loading={deleting}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

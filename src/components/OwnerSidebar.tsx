@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import Logo from "./Logo";
+import { signOut } from "@/actions/auth";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, exact: true },
@@ -85,13 +86,13 @@ export default function OwnerSidebar() {
             <p className="text-xs text-[#64748B]">3 / 5 cleaners used</p>
           </div>
         </div>
-        <Link
-          href="/login"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A] transition-all duration-150"
+        <button
+          onClick={() => signOut()}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A] transition-all duration-150 w-full"
         >
           <LogOut size={18} strokeWidth={2} />
           Sign out
-        </Link>
+        </button>
       </div>
     </>
   );

@@ -1,10 +1,50 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/signup", "/join", "/billing", "/api/webhooks"];
+// Public to everyone — no session required.
+const PUBLIC_PATHS = [
+  "/login",
+  "/signup",
+  "/join",
+  "/verify-email",
+  "/forgot-password",
+  "/reset-password",
+  "/auth/callback",
+  "/auth/invite",
+  "/api/webhooks",
+];
+
+// Allowed for users who are signed in but have NOT yet verified their email.
+const UNVERIFIED_ALLOWED = [
+  "/verify-email",
+  "/auth/callback",
+  "/login",
+  "/signup",
+  "/forgot-password",
+  "/reset-password",
+  "/api/webhooks",
+];
+
+// Allowed for users whose trial expired AND have no active subscription.
+// The hard gate: every other app route is locked to /billing.
+const TRIAL_LOCKED_ALLOWED = [
+  "/billing",
+  "/api/billing",
+  "/api/webhooks",
+  "/auth/callback",
+  "/login",
+  "/signup",
+  "/verify-email",
+  "/forgot-password",
+  "/reset-password",
+];
+
+function pathMatches(pathname: string, list: string[]) {
+  return list.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
 
 function isPublic(pathname: string) {
-  return PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  return pathMatches(pathname, PUBLIC_PATHS);
 }
 
 export async function middleware(request: NextRequest) {
@@ -37,47 +77,59 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isAuthRoute =
-    pathname.startsWith("/login") || pathname.startsWith("/signup");
+    pathname === "/login" || pathname === "/signup";
 
-  // Unauthenticated users can only hit public paths
-  if (!user && !isPublic(pathname) && pathname !== "/") {
+  // 1) Unauthenticated users → only public paths and the landing page.
+  if (!user) {
+    if (isPublic(pathname) || pathname === "/") return supabaseResponse;
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  // Authenticated users visiting auth pages → dashboard
-  if (user && isAuthRoute) {
+  // 2) Email-not-verified gate. Block protected routes until confirmed.
+  //    Defensive: most flows already require confirmation before a session is
+  //    issued, but a session without email_confirmed_at must never reach the app.
+  if (!user.email_confirmed_at && !pathMatches(pathname, UNVERIFIED_ALLOWED)) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/verify-email";
+    if (user.email) url.searchParams.set("email", user.email);
+    return NextResponse.redirect(url);
+  }
+
+  // 3) Authenticated + verified visiting login/signup → bounce to dashboard.
+  if (user.email_confirmed_at && isAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
 
-  // Trial / subscription enforcement for authenticated users on protected routes
-  if (user && !isPublic(pathname) && pathname !== "/") {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("org_id")
-      .eq("id", user.id)
-      .single();
+  // 4) Trial / subscription hard gate. Server-side, every protected route.
+  //    Once trial_ends_at is in the past AND subscription_status is not active,
+  //    every route except the billing/auth allowlist is forced to /billing.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("org_id")
+    .eq("id", user.id)
+    .maybeSingle();
 
-    if (profile?.org_id) {
-      const { data: org } = await supabase
-        .from("organizations")
-        .select("subscription_status, trial_ends_at")
-        .eq("id", profile.org_id)
-        .single();
+  if (profile?.org_id) {
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("subscription_status, trial_ends_at")
+      .eq("id", profile.org_id)
+      .maybeSingle();
 
-      if (org) {
-        const trialExpired =
-          org.trial_ends_at && new Date(org.trial_ends_at) < new Date();
-        const isActive = org.subscription_status === "active";
+    if (org) {
+      const trialExpired =
+        !!org.trial_ends_at && new Date(org.trial_ends_at) < new Date();
+      const isActive = org.subscription_status === "active";
 
-        if (trialExpired && !isActive) {
-          const url = request.nextUrl.clone();
-          url.pathname = "/billing";
-          return NextResponse.redirect(url);
-        }
+      if (trialExpired && !isActive && !pathMatches(pathname, TRIAL_LOCKED_ALLOWED)) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/billing";
+        url.searchParams.set("locked", "1");
+        return NextResponse.redirect(url);
       }
     }
   }
