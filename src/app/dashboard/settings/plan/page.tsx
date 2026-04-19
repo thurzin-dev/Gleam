@@ -14,10 +14,20 @@ export default function PlanSettingsPage() {
   const [portalLoading, setPortalLoading] = useState(false);
 
   useEffect(() => {
-    getBillingInfo().then((info) => {
-      setBilling(info);
-      setLoading(false);
-    });
+    let cancelled = false;
+    getBillingInfo()
+      .then((info) => {
+        if (!cancelled) setBilling(info);
+      })
+      .catch(() => {
+        if (!cancelled) toast.error("Couldn't load billing info.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function openPortal() {

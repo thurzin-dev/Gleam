@@ -19,11 +19,22 @@ export default function ResetPasswordPage() {
   const [errors, setErrors] = useState<Partial<typeof form>>({});
 
   useEffect(() => {
+    let cancelled = false;
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data }) => {
-      setHasSession(!!data.session);
-      setAuthChecked(true);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!cancelled) setHasSession(!!data.session);
+      })
+      .catch(() => {
+        if (!cancelled) setHasSession(false);
+      })
+      .finally(() => {
+        if (!cancelled) setAuthChecked(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   function validate() {

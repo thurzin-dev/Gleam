@@ -1,41 +1,29 @@
-"use client";
-
-import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { use } from "react";
-import toast from "react-hot-toast";
-import {
-  ArrowLeft,
-  MapPin,
-  Pencil,
-  Trash2,
-  CheckCircle2,
-  Home as HomeIcon,
-} from "lucide-react";
+import { ArrowLeft, MapPin, Pencil, CheckCircle2, Home as HomeIcon } from "lucide-react";
 import OwnerTopbar from "@/components/OwnerTopbar";
 import Button from "@/components/Button";
-import { properties } from "@/lib/sampleData";
+import { getProperty } from "@/actions/properties";
+import DeletePropertyButton from "./DeletePropertyButton";
 
-export default function PropertyDetailPage({
+export default async function PropertyDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = use(params);
-  const router = useRouter();
-  const property = properties.find((p) => p.id === id);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const { id } = await params;
+  const result = await getProperty(id);
 
-  if (!property) {
+  if (!result.success) {
     return (
       <>
         <OwnerTopbar title="Property" />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <p className="text-sm text-[#64748B] mb-4">Property not found.</p>
-            <Link href="/dashboard/properties" className="text-sm text-[#0EA5E9] hover:underline">
+            <p className="text-sm text-[#64748B] mb-4">{result.error}</p>
+            <Link
+              href="/dashboard/properties"
+              className="text-sm text-[#0EA5E9] hover:underline"
+            >
               Back to properties
             </Link>
           </div>
@@ -44,22 +32,12 @@ export default function PropertyDetailPage({
     );
   }
 
-  function handleDelete() {
-    setDeleting(true);
-    setTimeout(() => {
-      setDeleting(false);
-      setShowDeleteModal(false);
-      toast.success("Property deleted.");
-      router.push("/dashboard/properties");
-    }, 800);
-  }
-
-  const totalItems = property.rooms.reduce((a, r) => a + r.items.length, 0);
+  const property = result.data;
+  const totalItems = property.checklist.reduce((a, r) => a + r.items.length, 0);
 
   return (
     <>
       <OwnerTopbar title="Property detail" />
-
       <div className="flex-1 px-4 lg:px-8 py-6 lg:py-8">
         <div className="max-w-4xl mx-auto">
           <Link
@@ -70,7 +48,6 @@ export default function PropertyDetailPage({
             Back to properties
           </Link>
 
-          {/* Header card */}
           <div className="bg-white rounded-2xl border border-[#E2E8F0] p-6 mb-6">
             <div className="flex items-start justify-between flex-wrap gap-4">
               <div className="flex items-start gap-4">
@@ -79,39 +56,31 @@ export default function PropertyDetailPage({
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold text-[#0F172A]">
-                    {property.clientName}
+                    {property.name}
                   </h2>
                   <div className="flex items-center gap-1.5 mt-1 text-sm text-[#64748B]">
                     <MapPin size={14} />
                     {property.address}
                   </div>
                   <p className="text-xs text-[#94A3B8] mt-2">
-                    {property.rooms.length} rooms · {totalItems} checklist items
+                    {property.checklist.length} rooms · {totalItems} checklist items
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Link href={`/dashboard/properties/${id}/edit`}>
+                <Link href={`/dashboard/properties/${property.id}/edit`}>
                   <Button variant="ghost" size="md">
                     <Pencil size={15} />
                     Edit
                   </Button>
                 </Link>
-                <Button
-                  variant="danger"
-                  size="md"
-                  onClick={() => setShowDeleteModal(true)}
-                >
-                  <Trash2 size={15} />
-                  Delete
-                </Button>
+                <DeletePropertyButton id={property.id} name={property.name} />
               </div>
             </div>
           </div>
 
-          {/* Rooms with checklists */}
           <div className="flex flex-col gap-4">
-            {property.rooms.map((room) => (
+            {property.checklist.map((room) => (
               <section
                 key={room.id}
                 className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden"
@@ -134,9 +103,7 @@ export default function PropertyDetailPage({
                         size={16}
                         className="text-[#94A3B8] flex-shrink-0"
                       />
-                      <span className="text-sm text-[#0F172A]">
-                        {item.label}
-                      </span>
+                      <span className="text-sm text-[#0F172A]">{item.label}</span>
                     </li>
                   ))}
                 </ul>
@@ -145,39 +112,6 @@ export default function PropertyDetailPage({
           </div>
         </div>
       </div>
-
-      {/* Delete confirmation modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div
-            className="fixed inset-0 bg-black/30"
-            onClick={() => setShowDeleteModal(false)}
-          />
-          <div className="relative bg-white rounded-2xl border border-[#E2E8F0] shadow-lg p-6 w-full max-w-sm">
-            <h3 className="text-lg font-bold text-[#0F172A] mb-2">
-              Delete property?
-            </h3>
-            <p className="text-sm text-[#64748B] mb-6">
-              Delete {property.clientName}&apos;s property? This cannot be undone.
-            </p>
-            <div className="flex items-center justify-end gap-3">
-              <Button
-                variant="ghost"
-                onClick={() => setShowDeleteModal(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="danger"
-                onClick={handleDelete}
-                loading={deleting}
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

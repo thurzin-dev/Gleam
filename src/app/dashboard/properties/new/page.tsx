@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -14,6 +14,7 @@ import {
 import OwnerTopbar from "@/components/OwnerTopbar";
 import Button from "@/components/Button";
 import Input from "@/components/Input";
+import { createProperty } from "@/actions/properties";
 
 interface DraftItem {
   id: string;
@@ -37,7 +38,7 @@ export default function NewPropertyPage() {
   const [address, setAddress] = useState("");
   const [rooms, setRooms] = useState<DraftRoom[]>([]);
   const [newRoomName, setNewRoomName] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [pending, startTransition] = useTransition();
 
   function addRoom() {
     if (!newRoomName.trim()) {
@@ -101,12 +102,24 @@ export default function NewPropertyPage() {
       toast.error(`"${emptyRoom.name}" has no checklist items.`);
       return;
     }
-    setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
+    startTransition(async () => {
+      const result = await createProperty({
+        name: clientName.trim(),
+        address: address.trim(),
+        checklist: rooms.map((r) => ({
+          id: r.id,
+          name: r.name,
+          items: r.items.map((i) => ({ id: i.id, label: i.label })),
+        })),
+      });
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
       toast.success("Property saved.");
       router.push("/dashboard/properties");
-    }, 800);
+      router.refresh();
+    });
   }
 
   const totalItems = rooms.reduce((a, r) => a + r.items.length, 0);
@@ -286,7 +299,7 @@ export default function NewPropertyPage() {
                   Cancel
                 </Button>
               </Link>
-              <Button type="submit" loading={saving}>
+              <Button type="submit" loading={pending}>
                 Save property
               </Button>
             </div>
