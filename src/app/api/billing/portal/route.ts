@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 
-export async function POST(request: NextRequest) {
+async function createPortalSession(request: NextRequest) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     .from("profiles")
     .select("org_id")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
   if (!profile) {
     return NextResponse.json({ error: "Profile not found" }, { status: 404 });
@@ -26,12 +26,22 @@ export async function POST(request: NextRequest) {
     .from("organizations")
     .select("stripe_customer_id")
     .eq("id", profile.org_id)
-    .single();
+    .maybeSingle();
 
   if (!org?.stripe_customer_id) {
     return NextResponse.json(
       { error: "No active subscription" },
       { status: 400 }
+    );
+  }
+
+  let stripe: ReturnType<typeof getStripe>;
+  try {
+    stripe = getStripe();
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Stripe not configured" },
+      { status: 500 }
     );
   }
 
@@ -43,4 +53,12 @@ export async function POST(request: NextRequest) {
   });
 
   return NextResponse.json({ url: session.url });
+}
+
+export async function POST(request: NextRequest) {
+  return createPortalSession(request);
+}
+
+export async function GET(request: NextRequest) {
+  return createPortalSession(request);
 }

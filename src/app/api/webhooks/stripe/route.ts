@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { stripe } from "@/lib/stripe";
+import { getStripe, getWebhookSecret } from "@/lib/stripe";
 import { createServiceClient } from "@/lib/supabase/server";
 
 async function updateOrg(
@@ -25,6 +25,20 @@ function extractPlan(sub: Stripe.Subscription): string {
 }
 
 export async function POST(request: NextRequest) {
+  // Validate environment before doing anything else. If either env var is
+  // missing, return a clear 500 — not the opaque Stripe SDK error that used
+  // to surface as "Neither apiKey nor config.authenticator provided".
+  let stripe: ReturnType<typeof getStripe>;
+  let webhookSecret: string;
+  try {
+    stripe = getStripe();
+    webhookSecret = getWebhookSecret();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Stripe misconfigured";
+    console.error("[stripe webhook] config error:", message);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+
   const body = await request.text();
   const sig = request.headers.get("stripe-signature");
 
@@ -34,11 +48,7 @@ export async function POST(request: NextRequest) {
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    );
+    event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
   } catch {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }

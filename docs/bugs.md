@@ -199,3 +199,89 @@
 - Confirm Stripe webhook continues to update
   `organizations.subscription_status` to `"active"` on successful payment so
   the trial gate releases.
+
+---
+
+## 2026-04-19 — Backend feature sweep (backend agent)
+
+### 10. `Cannot find module '@/lib/types'` across server actions
+- **Symptom:** `npx tsc --noEmit` surfaced "Cannot find module" from
+  `actions/auth.ts`, `actions/jobs.ts`, `actions/job-items.ts`,
+  `actions/checklist-templates.ts`, `actions/properties.ts`,
+  `actions/profiles.ts`, and `lib/supabase/realtime.ts` (all at project root,
+  duplicated legacy scaffolding) plus any future consumers under `src/`.
+- **Root cause:** `tsconfig.json` maps `@/*` → `./src/*`, and `src/lib/types.ts`
+  did not exist. Only a stray `lib/types.ts` at the project root was present,
+  which does not resolve under the `@/` alias.
+- **Fix:** created `src/lib/types.ts` with `Organization`, `Profile`, `Job`,
+  `Property`, `PropertyRoom`, `ChecklistItem`, `ChecklistTemplate`, `JobItem`,
+  `UserRole`, `JobStatus`, and `ActionResult<T>`. The `Organization` interface
+  now includes the billing columns from migration 003
+  (`plan`, `subscription_status`, `trial_ends_at`, `current_period_end`,
+  `stripe_customer_id`, `stripe_subscription_id`) so callers don't need to
+  widen the type locally.
+- **Note:** the root-level `actions/` and `lib/` directories still exist and
+  appear to be legacy scaffolding — nothing under `src/` imports from them,
+  and their `@/`-prefixed imports now resolve correctly against the new
+  `src/lib/types.ts`. Cleaning them up is out of scope for this sweep.
+
+### 11. Three pre-existing `tsc` errors in `src/actions/properties.ts`
+- **Symptom:** lines 141, 171, 193 — `Type 'string | undefined' is not
+  assignable to type 'string'` on `auth.error` after the `if ("error" in auth)`
+  narrow.
+- **Root cause:** The `requireOwner()` helper returns a discriminated union
+  where the `error` branch narrows `auth.error` to `string | undefined`
+  instead of `string`. This file is untracked (`?? src/actions/properties.ts`
+  in `git status`) and owned by the bugfix/frontend agent — outside the
+  backend agent's zone.
+- **Flagged for:** bugfix agent. Suggested fix: tighten the return type of
+  `requireOwner` so the error branch has `error: string` (non-optional).
+
+### 12. Stripe webhook route threw opaque SDK error when env was absent
+- **Symptom:** `POST /api/webhooks/stripe` returned 500 with
+  `Neither apiKey nor config.authenticator provided` (the Stripe SDK's own
+  error) when `STRIPE_SECRET_KEY` or `STRIPE_WEBHOOK_SECRET` was missing.
+  Noted in bug #6's caveat — flagged for the backend agent.
+- **Root cause:** `src/lib/stripe.ts` built the `Stripe` client at module
+  load time with a non-null assertion (`process.env.STRIPE_SECRET_KEY!`),
+  and `route.ts` passed `process.env.STRIPE_WEBHOOK_SECRET!` straight to
+  `constructEvent`. A missing env var either crashed the import or handed
+  the SDK an empty string and let it throw an unreadable error.
+- **Fix:**
+  - `src/lib/stripe.ts` now exposes `getStripe()` (lazy, throws a clear
+    "STRIPE_SECRET_KEY is missing from environment" if unset) and
+    `getWebhookSecret()` (same contract for the webhook secret). The existing
+    `stripe` named export is retained as a lazy `Proxy` so every call site
+    that still does `import { stripe } from "@/lib/stripe"` keeps working
+    without a migration.
+  - `src/app/api/webhooks/stripe/route.ts` and
+    `src/app/api/billing/portal/route.ts` now guard both init calls in a
+    `try/catch` and return `500 { error }` with the readable message if the
+    environment is misconfigured, instead of a Stripe SDK throw.
+- **Verified:** `npx tsc --noEmit` is clean for all backend-zone files.
+  `.env.local` already contains both `STRIPE_SECRET_KEY` and
+  `STRIPE_WEBHOOK_SECRET`; per task scope, `.env.local` was not modified.
+  End-to-end webhook delivery still needs a live Stripe CLI `stripe listen`
+  run to confirm signature verification works against the current secret.
+
+### 13. Missing per-job checklist, account update, plan-portal GET, trial-expired email
+- **Symptom:** Owner UI had no way to customize which rooms/items run on a
+  *specific* job (only per-property), no self-serve account form, no plain
+  `<a href>` to the Stripe portal, and no email when a trial actually ended
+  (only the 3-day warning existed).
+- **Fix:**
+  - `PATCH /api/jobs/[id]/items` — owner-only, same-org gate, replaces
+    `job_items` for the job. Payload shape documented in `docs/api.md`.
+  - `PATCH /api/account` — owner-only. `full_name` → `profiles`,
+    `company_name` → `organizations`, `avatar_url` → Supabase Auth user
+    metadata (until a migration adds a dedicated column — flagged for the
+    security agent). Password change stays client-side via
+    `supabase.auth.updateUser({ password })` as specified.
+  - `GET /api/billing/portal` — now supports both `GET` and `POST` so
+    frontend can use either fetch-then-redirect or a direct `<a>` link.
+  - `POST /api/cron/trial-expired` — mirrors `trial-warning`. Filters orgs
+    with `trial_ends_at < now()` and `subscription_status !== 'active'`,
+    sends email via `auth.admin.inviteUserByEmail`, stamps
+    `trial_expired_notified_at` into user metadata for idempotency.
+- **Contract:** all four endpoints are documented in `docs/api.md` (created
+  in this sweep — previously the file was missing).
