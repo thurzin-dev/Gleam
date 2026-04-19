@@ -68,7 +68,13 @@
 
 ---
 
-## Middleware gates (`src/middleware.ts`)
+## Proxy gates (`src/proxy.ts`)
+
+> Next.js 16 renamed the `middleware` file convention to `proxy`. The active
+> file is `src/proxy.ts`, exporting `proxy(request)`. A legacy root
+> `middleware.ts` from initial scaffolding shadowed this file (Next picked up
+> the root one and ignored `src/`); it was deleted on 2026-04-18 — see
+> `bugs.md` #6.
 
 Layered checks, run in order on every matched request:
 

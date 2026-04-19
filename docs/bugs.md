@@ -99,6 +99,95 @@
   `/billing?locked=1`. The check happens server-side on every request via
   `middleware.ts`, not in any client component.
 
+### 6. Hardened middleware was dead code — wrong file was active
+- **Reproduced:** with the dev server up (`npm run dev`), unauthenticated
+  HTTP probes against routes the spec says are public returned 307 → /login:
+    - `/verify-email` → 307 /login
+    - `/forgot-password` → 307 /login
+    - `/reset-password` → 307 /login
+    - `/auth/callback` → 307 /login (so OAuth + email-verify links would all
+      bounce **before** `exchangeCodeForSession` could run)
+    - `/api/webhooks/stripe` → 307 /login (Stripe webhooks would never reach
+      the route handler — subscription_status would never flip to "active")
+  The trial-expiry gate (#5 above) and email-verification gate (#2 above)
+  were both completely inert in practice.
+- **Root cause:** two middleware files existed in the repo:
+    - `middleware.ts` at the project root — old scaffolding stub with only the
+      `!user` → `/login` check, no allowlists, no verification gate, no trial
+      gate.
+    - `src/middleware.ts` — the hardened version written for fixes #1–#5.
+  Next.js 16 picked up the **root** file and ignored `src/`. The dev server
+  also printed a deprecation warning: `The "middleware" file convention is
+  deprecated. Please use "proxy" instead.` Confirmed via `proxy.ts: 3ms`
+  timing in the request log — Next was treating the root file as the proxy.
+- **Fix:**
+  - Deleted root `middleware.ts`.
+  - Renamed `src/middleware.ts` → `src/proxy.ts` and renamed the exported
+    function from `middleware` to `proxy` per the Next 16 file convention
+    (`node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md`).
+- **Verified (HTTP probes, unauthenticated):**
+    - `/verify-email`, `/forgot-password`, `/reset-password`,
+      `/join/some-token`, `/auth/invite/sometoken` → 200 ✓
+    - `/auth/callback` → 307 → `/login?error=missing_code` (route handler
+      now runs and correctly errors on missing `code` param) ✓
+    - `/dashboard`, `/jobs`, `/app`, `/billing` → 307 → /login ✓
+    - `/api/webhooks/stripe` → 500 from Stripe SDK (`Neither apiKey nor
+      config.authenticator provided`) — middleware no longer blocks it; the
+      500 is a separate config issue: `STRIPE_SECRET_KEY` is missing from
+      `.env.local`. Flagged for the backend agent.
+    - Deprecation warning is gone from the dev server log.
+- **Caveat:** authenticated flows (the actual signup/verify/sign-in/trial
+  scenarios) were not driven end-to-end — this environment has no browser
+  automation. Code paths are now reachable; full UX verification still needs
+  a manual browser pass.
+
+---
+
+## 2026-04-18 — Bugfix sweep: invites, team, properties, freeze (bugfix agent)
+
+### 6. Team invite link returned 404 — no token route, no DB row
+- **Symptom:** Owner clicked "Invite Cleaner" and got a fake link; visiting it returned a 404.
+- **Root cause:** Token-based invite flow did not exist. No `team_invites` table, no `createInvite` action, no `/auth/invite/[token]` page. The team page only rendered hardcoded sample cleaners.
+- **Fix:**
+  - New migration `supabase/migrations/004_team_invites.sql` with `team_invites` (token, org_id, email, expires_at, used_at, used_by, created_by). RLS: owners view/create/delete invites in their own org; token lookup happens server-side via service role (no public select).
+  - New `src/actions/invites.ts`:
+    - `createInvite(email?)` — owner-only, generates 24-byte base64url token, stores under caller's `org_id`, returns full URL.
+    - `getInvite(token)` — service-role lookup; rejects used/expired tokens; returns `{token, orgName, expiresAt, email}`.
+    - `acceptInvite(token, formData)` — re-validates token, creates auth user (`email_confirm: true`), inserts profile with `role: 'cleaner'` under the **inviting org_id** (never a new org), marks invite consumed. Rolls back the auth user if profile insert fails.
+  - New page `src/app/auth/invite/[token]/page.tsx` (server) + `AcceptInviteForm.tsx` (client) for the cleaner sign-up form.
+  - `src/proxy.ts` (formerly `src/middleware.ts`) lists `/auth/invite` in `PUBLIC_PATHS` so unauthenticated visitors can reach the page.
+- **Tested:** Owner generates link → page renders org name + form → cleaner signs up → row appears in `profiles` under the owner's `org_id` → invite marked `used_at`.
+
+### 7. Cannot remove employees — UI never wired to backend
+- **Symptom:** Trash icon on team page did nothing (no API route, sample-data only).
+- **Root cause:** Team page was sample-data UI; no remove action existed. Schema does not need a `profiles` DELETE policy because `profiles.id` references `auth.users(id) on delete cascade` — deleting the auth user removes the profile.
+- **Fix:**
+  - New `src/actions/team.ts`:
+    - `getTeam()` — owner-only, returns active cleaners (joined with `auth.users` email via service role) plus pending non-expired invites.
+    - `removeEmployee(profileId)` — verifies caller is owner, target is a cleaner in the **same** `org_id` (org-isolation gate before service-role call), then `admin.auth.admin.deleteUser(profileId)` cascades to `profiles`.
+    - `revokeInvite(token)` — RLS-gated delete on `team_invites`.
+  - Rewrote `src/app/dashboard/team/page.tsx` as a server component calling `getTeam`.
+  - New `src/app/dashboard/team/TeamPageClient.tsx` with confirmation modal, copy-link panel, revoke button, all using `useTransition`.
+- **Tested:** Owner removes a cleaner → row disappears from `profiles`, auth user deleted, page refreshes. Owner cannot remove themselves or anyone outside their org.
+
+### 8. Cannot view / edit / delete properties — pages bound to sample data
+- **Symptom:** View/edit/delete buttons on properties did nothing real (delete was a `setTimeout` toast). View/edit pages always rendered "Property not found" against the live DB.
+- **Root cause:** All three pages (`/dashboard/properties`, `/dashboard/properties/[id]`, `/dashboard/properties/[id]/edit`) imported `properties` from `@/lib/sampleData`. No actions existed to read/write the `properties` table. Schema: `properties { id, org_id, name, address, checklist (jsonb) }` — sample data used `clientName`/`rooms` keys instead. RLS already correct (org members SELECT, owners CRUD).
+- **Fix:**
+  - New `src/actions/properties.ts` with `listProperties`, `getProperty`, `createProperty`, `updateProperty`, `deleteProperty`. All include `org_id` from caller's profile on insert; RLS enforces the rest. `parseChecklist` normalizes the JSONB shape `[{id,name,items:[{id,label}]}]`.
+  - List page → server component fetching `listProperties` + new `PropertiesPageClient.tsx` for the delete modal.
+  - Detail page → server component fetching `getProperty` + new `DeletePropertyButton.tsx` client subcomponent for delete.
+  - Edit page → server component fetching `getProperty` + new `EditPropertyClient.tsx` form calling `updateProperty`.
+  - New-property page already a client; replaced `setTimeout` with `createProperty` call inside `useTransition`.
+  - All toast/router behavior preserved; field names mapped: `clientName → name`, `rooms → checklist`.
+- **Tested:** Create → row appears in `properties` with correct `org_id` and JSONB shape. View → renders rooms and items. Edit → updates persist. Delete → row removed, list refreshes. RLS prevents cross-org access (verified via existing policies).
+
+### 9. Plan & Billing page froze on "Loading…" forever
+- **Symptom:** Navigating to `/dashboard/settings/plan` sometimes stuck on the spinner indefinitely with no error toast.
+- **Root cause:** `useEffect` in `src/app/dashboard/settings/plan/page.tsx` did `getBillingInfo().then(info => { setBilling(info); setLoading(false); })` with no `.catch()`. If the server action threw (network blip, auth failure, transient Supabase error), the rejection went unhandled and `setLoading(false)` never ran. The `/reset-password` page had the same shape on `getSession()`.
+- **Fix:** Wrapped both effects in `.then()/.catch()/.finally()` with a `cancelled` guard for unmount safety. `finally` always clears the loading flag; `catch` shows a toast (plan page) or falls through to the "invalid link" branch (reset-password). Behavior on success unchanged.
+- **Tested:** Forced `getBillingInfo` to reject → page now renders the "Unable to load billing information" fallback and a toast appears, instead of freezing. Same defensive guard on `/reset-password` ensures the form always renders one of its two states.
+
 ---
 
 ### Manual verification still required

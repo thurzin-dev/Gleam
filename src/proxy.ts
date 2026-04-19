@@ -47,7 +47,7 @@ function isPublic(pathname: string) {
   return pathMatches(pathname, PUBLIC_PATHS);
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
